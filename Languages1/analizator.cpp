@@ -48,6 +48,7 @@ void Analizator::S ()
             else        //void - значит описание функции
             {
                 cur++;
+                bool isF = false;       //вызов функции
                 if ((*lex)[cur].type == Tmain)      //main
                 {
                  ///
@@ -55,6 +56,7 @@ void Analizator::S ()
                     {   ///дублирование main
                         T->semError("Дублирование main", &(*lex)[cur]);
                     }
+                    std::cout<<"\n\n---Вход в main---";
                  ///
                     cur++;
                     InterpMainFlag = true;  ////с этого момента начинаем интерпретацию
@@ -75,6 +77,7 @@ void Analizator::S ()
                 }
                 else    //Функция
                 {
+                    isF = true;
                     if ((*lex)[cur].type != Tid)          //РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ
                     {
                         right = false;
@@ -166,7 +169,10 @@ void Analizator::S ()
                 else    //был составной оператор. Восстановим уазатель в дереве
                 {
 ///
+                    //T->Cur = T->F;
                     T->semRep(false);
+                    if (!isF)
+                        std::cout<<"\n\n---Выход из main---";
 ///
                 }
             }
@@ -408,6 +414,10 @@ bool Analizator::Oper (bool isC)     //оператор
                                     T->Cur->semTreeDelete(new Node (T->F->N->Id, TypeEmpty));
                                     cur = addrReturn;   //вернем указатель
                 ///
+                                }
+                                if (InterpMainFlag)
+                                {
+                                    std::cout<<"\n---Функция отработала";
                                 }
                             }
                     else
@@ -1001,7 +1011,7 @@ DataValue* Analizator::A7 ()     //A7
     return result;
 }
 
-bool Analizator::Function ()     //РІС‹Р·РѕРІ С„СѓРЅРєС†РёРё
+bool Analizator::Function ()     //Вызов функции
 {
     Tree *ptr;
     Node *nodePtr;
@@ -1022,14 +1032,21 @@ bool Analizator::Function ()     //РІС‹Р·РѕРІ С„СѓРЅРєС†РёРё
     ////
 
     }
+    if (InterpMainFlag  && ptr != Q_NULLPTR)
+    {
+        std::cout<<"\n\n---Вызов функции "<<ptr->N->Id.toStdString();
+    }
+
     //Нашли функцию. Нужно скопировать ее поддерево в текущуюю позицию
     //копируем узел с именем. тип будет пустой
+    T->F = ptr;
     T->Cur->addLeft(new Node (ptr->N->Id, TypeEmpty, ptr->N->ParamCount, ptr->N->PosInProgram));
     T->Cur = T->Cur->Left;
     T->Cur = T->Cur->Right;    //уходим вправо
 
     ParCount = ptr->N->ParamCount;  //число формальных параметров функции
-    ptr = ptr->Right;
+    ptr = ptr->Right;   //спускаемся с уровня функции на слой параметров
+    ptr = ptr->Left;
 
     cur++;
     if ((*lex)[cur].type != Tls)
@@ -1100,7 +1117,6 @@ bool Analizator::Function ()     //РІС‹Р·РѕРІ С„СѓРЅРєС†РёРё
     //построено поддерево для функции
     cur++;
     addrReturn = cur;   //адрес возврата
-
     return true;
 }
 
