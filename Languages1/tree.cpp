@@ -281,3 +281,8 @@ int Tree::semTypeResUn (int o1, Lexem* l)      //проверка результата унарной опе
         semError("Несоответствие типов", l);
     return TypeUnKnown;
 }
+
+void Tree::semTreeCopy (Tree* Fn)
+{
+    Tree *pos = this;   //сюда будем вставлять поддерево
+}

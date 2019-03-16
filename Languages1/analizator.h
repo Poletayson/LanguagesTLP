@@ -29,6 +29,7 @@ public:
     ///Проверяем в Data(), нужно ли создавать узлы
     bool IsCycleTreeBuilding;       //еще строим дерево для цикла. Для объявлений будут создаваться узлы
     int deph;                       //глубина погружения в блок
+    int addrReturn;
     DataValue currenValue;      //последнее вычисленное значение
     std::string ErrorText;
     void toAnalize ();
