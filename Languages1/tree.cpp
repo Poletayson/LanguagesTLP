@@ -9,6 +9,8 @@ Tree::Tree()        //по умолчанию - пустая вершина
     Right = Left = Parent = nullptr;
 }
 
+
+
 Tree::Tree(Tree *p, Tree *l, Tree *r, Node *n)
 {
     N = n;
@@ -30,7 +32,6 @@ void Tree::addLeft (Node *n)
     Tree *a = new Tree (this, nullptr, new Tree (), n);
     a->Right->Parent = a;    //родитель - текущая
     Left = a;
-    //Cur = Left;
 }
 void Tree::addRight (Node *n)
 {
@@ -286,3 +287,26 @@ void Tree::semTreeCopy (Tree* Fn)
 {
     Tree *pos = this;   //сюда будем вставлять поддерево
 }
+void Tree::semTreeDelete(Node *n)   //удаляем поддерево до заданного узла
+{
+    while (Cur != nullptr)
+         if (n->Id != Cur->N->Id || n->TypeObj != Cur->N->TypeObj)    //объект таблицы не совпадает с заданным
+         {
+             if (Cur->Left != Q_NULLPTR)    //удаляем всех потомков
+                 delete Cur->Left;
+             if (Cur->Right != Q_NULLPTR)
+                 delete Cur->Right;
+             Cur = Cur->Parent;             //переходим к родителю
+
+         }
+         else break;        //дошли до искомой вершины
+
+    if (Cur->Right != Q_NULLPTR)    //удаляем правого
+        delete Cur->Right;
+    if (Cur->Parent->Left == Cur)   //делаем левого потомка потомком родителя
+        Cur->Parent->Left = Cur->Left;
+    else if (Cur->Parent->Right == Cur)
+        Cur->Parent->Right = Cur->Left;
+}
+
+

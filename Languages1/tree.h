@@ -17,6 +17,7 @@ public:
     Tree();
     Tree(Node *n);
     Tree(Tree *p, Tree *l, Tree *r, Node *n);
+    //~Tree();
     void addLeft (Node *n);             //вставить потомка
     void addRight (Node *n);
     Tree *Find (Tree *From, Node* n);   //поиск в таблице. Может вернуть null если нету
@@ -35,7 +36,7 @@ public:
     ///копирует поддерево функции в позицию this
     void semTreeCopy (Tree* Fn);
     ///удаляем все поддерево функции, в которой сейчас находимся
-    void semTreeDelete ();
+    void semTreeDelete (Node* n);
 
     void semToRight ();     //уйти вправо
     void semInc (Tree *func);       //увеличить число параметров функции

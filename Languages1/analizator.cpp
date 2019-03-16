@@ -154,10 +154,10 @@ void Analizator::S ()
                         break;
                     }
                     cur++;
+                    T->F->N->PosInProgram = cur;    //отмечаем для этой функции позицию блока
                 }
 //далее должен идти сост. оператор
-                ///ЗАКОНЧИЛ ЗДеСЬ
-                T->F->N->PosInProgram = cur;    //отмечаем для этой функции позицию блока
+
                 if (!SOper (false))    //проверяем на сост. оператор
                 {
                     right = false;
@@ -392,9 +392,24 @@ bool Analizator::Oper (bool isC)     //оператор
                             return false;
                         else;
                     else if ((*lex)[cur+1].type == Tls) //после идет (
-                            if (!Function()) //РЅРµ РІС‹СЂР°Р¶РµРЅРёРµ
+                            if (!Function())
                                 return false;
-                            else;
+                            else    //вызов функции. Адрес возврата стоит. Осталось вызвать оператор
+                            {
+                                cur = T->F->N->PosInProgram;    //переходим к блоку
+                                if (!SOper (false))    //проверяем на сост. оператор
+                                {
+                                    right = false;
+                                    return false;
+                                }
+                                else    //был составной оператор. Удалим поддерево до вызова функции и вернем указатель
+                                {
+                ///
+                                    T->Cur->semTreeDelete(new Node (T->F->N->Id, TypeEmpty));
+                                    cur = addrReturn;   //вернем указатель
+                ///
+                                }
+                            }
                     else
                     {
                         DataValue* ptrVal = A1();
@@ -989,7 +1004,9 @@ DataValue* Analizator::A7 ()     //A7
 bool Analizator::Function ()     //РІС‹Р·РѕРІ С„СѓРЅРєС†РёРё
 {
     Tree *ptr;
+    Node *nodePtr;
     int t1;
+    int ParCount;
     if ((*lex)[cur].type != Tid)
     {
         ErrorText = "Ожидался идентификатор";
@@ -1006,6 +1023,13 @@ bool Analizator::Function ()     //РІС‹Р·РѕРІ С„СѓРЅРєС†РёРё
 
     }
     //Нашли функцию. Нужно скопировать ее поддерево в текущуюю позицию
+    //копируем узел с именем. тип будет пустой
+    T->Cur->addLeft(new Node (ptr->N->Id, TypeEmpty, ptr->N->ParamCount, ptr->N->PosInProgram));
+    T->Cur = T->Cur->Left;
+    T->Cur = T->Cur->Right;    //уходим вправо
+
+    ParCount = ptr->N->ParamCount;  //число формальных параметров функции
+    ptr = ptr->Right;
 
     cur++;
     if ((*lex)[cur].type != Tls)
@@ -1015,7 +1039,7 @@ bool Analizator::Function ()     //РІС‹Р·РѕРІ С„СѓРЅРєС†РёРё
     }
     cur++;
 
-    if ((*lex)[cur].type != Trs)        //РїР°СЂР°РјРµС‚СЂС‹ Р±СѓРґСѓС‚
+    if ((*lex)[cur].type != Trs)        //фактические параметры
     {
         DataValue* ptrVal = A1();
         if (ptrVal == Q_NULLPTR)    //не выражение
@@ -1023,6 +1047,17 @@ bool Analizator::Function ()     //РІС‹Р·РѕРІ С„СѓРЅРєС†РёРё
             ErrorText = "Ожидалось выражение";
             return false;
         }
+        if (ParCount > 0)   //еще будут параметры
+        {
+            nodePtr = new Node (ptr->N->Id, ptr->N->TypeObj);   //новый узел
+            nodePtr->Data = *ptrVal;         //присвоим значение
+            T->Cur->addLeft(new Node (ptr->N->Id, TypeEmpty, ptr->N->ParamCount, ptr->N->PosInProgram));
+            T->Cur = T->Cur->Left;
+            ptr = ptr->Left;
+            ParCount--;     //параметров меньше
+        }
+        else
+            T->semError("Несоответствие количества параметров", &(*lex)[cur]);
     }
 
     while ((*lex)[cur].type != Trs)
@@ -1044,13 +1079,28 @@ bool Analizator::Function ()     //РІС‹Р·РѕРІ С„СѓРЅРєС†РёРё
             return false;
         }
 
+        if (ParCount > 0)   //еще будут параметры
+        {
+            nodePtr = new Node (ptr->N->Id, ptr->N->TypeObj);   //новый узел
+            nodePtr->Data = *ptrVal;         //присвоим значение
+            T->Cur->addLeft(new Node (ptr->N->Id, TypeEmpty, ptr->N->ParamCount, ptr->N->PosInProgram));
+            T->Cur = T->Cur->Left;
+            ptr = ptr->Left;
+            ParCount--;     //параметров меньше
+        }
+        else
+            T->semError("Несоответствие количества параметров", &(*lex)[cur]);
+
     }
     if ((*lex)[cur].type != Trs)
     {
         ErrorText = "Ожидался символ )";
         return false;
     }
+    //построено поддерево для функции
     cur++;
+    addrReturn = cur;   //адрес возврата
+
     return true;
 }
 
