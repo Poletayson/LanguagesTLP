@@ -400,24 +400,34 @@ bool Analizator::Oper (bool isC)     //оператор
                     else if ((*lex)[cur+1].type == Tls) //после идет (
                             if (!Function())
                                 return false;
-                            else    //вызов функции. Адрес возврата стоит. Осталось вызвать оператор
+                            else if (InterpMainFlag)   //вызов функции. Адрес возврата стоит. Осталось вызвать оператор
                             {
-                                cur = T->F->N->PosInProgram;    //переходим к блоку
-                                if (!SOper (false))    //проверяем на сост. оператор
+                                if (!semErr)
                                 {
-                                    right = false;
-                                    return false;
+                                    cur = T->F->N->PosInProgram;    //переходим к блоку
+                                    if (!SOper (false))    //проверяем на сост. оператор
+                                    {
+                                        right = false;
+                                        return false;
+                                    }
+                                    else    //был составной оператор. Удалим поддерево до вызова функции и вернем указатель
+                                    {
+                                        ///
+                                        T->Cur->semTreeDelete(new Node (T->F->N->Id, TypeEmpty));
+                                        cur = addrReturn;   //вернем указатель
+                                        ///
+                                    }
+                                    if (InterpMainFlag)
+                                    {
+                                        std::cout<<"\n---Функция отработала";
+                                    }
                                 }
-                                else    //был составной оператор. Удалим поддерево до вызова функции и вернем указатель
+                                else
                                 {
-                ///
-                                    T->Cur->semTreeDelete(new Node (T->F->N->Id, TypeEmpty));
-                                    cur = addrReturn;   //вернем указатель
-                ///
-                                }
-                                if (InterpMainFlag)
-                                {
-                                    std::cout<<"\n---Функция отработала";
+                                    if (stage == 1) //дерево было построено
+                                    {
+                                        T->Cur->semTreeDelete(new Node (T->F->N->Id, TypeEmpty));
+                                    }
                                 }
                             }
                     else
@@ -1017,6 +1027,8 @@ bool Analizator::Function ()     //Вызов функции
     Node *nodePtr;
     int t1;
     int ParCount;
+    stage = 0;      //нулевая стадия
+    semErr = false; //пока ошибки нет
     if ((*lex)[cur].type != Tid)
     {
         ErrorText = "Ожидался идентификатор";
@@ -1028,25 +1040,33 @@ bool Analizator::Function ()     //Вызов функции
         ptr = T->Cur->Find(new Node ((*lex)[cur].image, TypeFunc));     //ищем функцию
 
         if (ptr == nullptr)     //ид не нашелся
+        {
             T->semError("Необъявленная функция", &(*lex)[cur]);
+            semErr = true;
+        }
     ////
 
     }
     if (InterpMainFlag  && ptr != Q_NULLPTR)
     {
         std::cout<<"\n\n---Вызов функции "<<ptr->N->Id.toStdString();
+        stage = 1;      //первая стадия: функция найдена. Значит и дерево будет построено
+
+//    }
+
+//    if (ptr != Q_NULLPTR)       //функция была найдена
+//    {
+        //Нашли функцию. Нужно скопировать ее поддерево в текущуюю позицию
+        //копируем узел с именем. тип будет пустой
+        T->F = ptr;
+        T->Cur->addLeft(new Node (ptr->N->Id, TypeEmpty, ptr->N->ParamCount, ptr->N->PosInProgram));
+        T->Cur = T->Cur->Left;
+        T->Cur = T->Cur->Right;    //уходим вправо
+
+        ParCount = ptr->N->ParamCount;  //число формальных параметров функции
+        ptr = ptr->Right;   //спускаемся с уровня функции на слой параметров
+        ptr = ptr->Left;
     }
-
-    //Нашли функцию. Нужно скопировать ее поддерево в текущуюю позицию
-    //копируем узел с именем. тип будет пустой
-    T->F = ptr;
-    T->Cur->addLeft(new Node (ptr->N->Id, TypeEmpty, ptr->N->ParamCount, ptr->N->PosInProgram));
-    T->Cur = T->Cur->Left;
-    T->Cur = T->Cur->Right;    //уходим вправо
-
-    ParCount = ptr->N->ParamCount;  //число формальных параметров функции
-    ptr = ptr->Right;   //спускаемся с уровня функции на слой параметров
-    ptr = ptr->Left;
 
     cur++;
     if ((*lex)[cur].type != Tls)
@@ -1064,17 +1084,24 @@ bool Analizator::Function ()     //Вызов функции
             ErrorText = "Ожидалось выражение";
             return false;
         }
-        if (ParCount > 0)   //еще будут параметры
+        if (ptr != Q_NULLPTR)       //функция была найдена
         {
-            nodePtr = new Node (ptr->N->Id, ptr->N->TypeObj);   //новый узел
-            nodePtr->Data = *ptrVal;         //присвоим значение
-            T->Cur->addLeft(new Node (ptr->N->Id, TypeEmpty, ptr->N->ParamCount, ptr->N->PosInProgram));
-            T->Cur = T->Cur->Left;
-            ptr = ptr->Left;
-            ParCount--;     //параметров меньше
+            if (ParCount > 0)   //еще будут параметры
+            {
+                nodePtr = new Node (ptr->N->Id, ptr->N->TypeObj);   //новый узел
+                nodePtr->Data = *ptrVal;         //присвоим значение
+                T->Cur->addLeft(new Node (ptr->N->Id, TypeEmpty, ptr->N->ParamCount, ptr->N->PosInProgram));
+                T->Cur = T->Cur->Left;
+
+                ptr = ptr->Left;
+                ParCount--;     //параметров меньше
+            }
+            else
+            {
+                T->semError("Несоответствие количества параметров", &(*lex)[cur]);
+                semErr = true;
+            }
         }
-        else
-            T->semError("Несоответствие количества параметров", &(*lex)[cur]);
     }
 
     while ((*lex)[cur].type != Trs)
@@ -1095,20 +1122,31 @@ bool Analizator::Function ()     //Вызов функции
             ErrorText = "Ожидалось выражение";
             return false;
         }
-
-        if (ParCount > 0)   //еще будут параметры
+        if (ptr != Q_NULLPTR)       //функция была найдена
         {
-            nodePtr = new Node (ptr->N->Id, ptr->N->TypeObj);   //новый узел
-            nodePtr->Data = *ptrVal;         //присвоим значение
-            T->Cur->addLeft(new Node (ptr->N->Id, TypeEmpty, ptr->N->ParamCount, ptr->N->PosInProgram));
-            T->Cur = T->Cur->Left;
-            ptr = ptr->Left;
-            ParCount--;     //параметров меньше
+            if (ParCount > 0)   //еще будут параметры
+            {
+                nodePtr = new Node (ptr->N->Id, ptr->N->TypeObj);   //новый узел
+                nodePtr->Data = *ptrVal;         //присвоим значение
+                T->Cur->addLeft(new Node (ptr->N->Id, TypeEmpty, ptr->N->ParamCount, ptr->N->PosInProgram));
+                T->Cur = T->Cur->Left;
+                ptr = ptr->Left;
+                ParCount--;     //параметров меньше
+            }
+            else
+            {
+                T->semError("Несоответствие количества параметров", &(*lex)[cur]);
+                semErr = true;
+            }
         }
-        else
-            T->semError("Несоответствие количества параметров", &(*lex)[cur]);
 
     }
+    if (ptr != Q_NULLPTR)       //функция была найдена
+        if(ParCount > 0)
+        {
+            T->semError("Несоответствие количества параметров", &(*lex)[cur]);
+            semErr = true;
+        }
     if ((*lex)[cur].type != Trs)
     {
         ErrorText = "Ожидался символ )";
