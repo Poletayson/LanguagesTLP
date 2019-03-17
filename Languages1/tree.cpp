@@ -177,6 +177,7 @@ bool Tree::semFToTable (QString name)       //занесение имени функции  в таблицу
         Cur->addLeft(ptr);
         Cur = Cur->Left;
         F = Cur;                //указатель на функцию
+        Cur->Right->Parent = Cur;
         Cur = Cur->Right;       //переходим на пустую правую
         return true;
     }

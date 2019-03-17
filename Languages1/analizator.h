@@ -32,6 +32,7 @@ public:
     bool IsCycleTreeBuilding;       //еще строим дерево для цикла. Для объявлений будут создаваться узлы
     int deph;                       //глубина погружения в блок
     int addrReturn;
+    QList <int> RetAddress;         //стек адресов возврата
     DataValue currenValue;      //последнее вычисленное значение
     std::string ErrorText;
     void toAnalize ();

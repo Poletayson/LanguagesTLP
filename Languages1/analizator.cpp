@@ -95,7 +95,7 @@ void Analizator::S ()
                     if ((*lex)[cur].type != Tls)
                     {
                         right = false;
-                        ErrorText = "Ожидался символ )";
+                        ErrorText = "Ожидался символ (";
                         break;
                     }
                     cur++;
@@ -170,7 +170,7 @@ void Analizator::S ()
                 {
 ///
                     //T->Cur = T->F;
-                    T->semRep(false);
+                    T->semRep(true);
                     if (!isF)
                         std::cout<<"\n\n---Выход из main---";
 ///
@@ -414,7 +414,7 @@ bool Analizator::Oper (bool isC)     //оператор
                                     {
                                         ///
                                         T->Cur->semTreeDelete(new Node (T->F->N->Id, TypeEmpty));
-                                        cur = addrReturn;   //вернем указатель
+                                        cur = RetAddress.takeLast();//addrReturn;   //вернем указатель
                                         ///
                                     }
                                     if (InterpMainFlag)
@@ -549,68 +549,71 @@ bool Analizator::Cicle ()     //Цикл
     bool ptrFlag;
     InterpMainFlag = localFlag; //возвращаем флаг интерпретации
     int LocalCur = cur;
-    do
+    if (InterpMainFlag) //интерпретируем ТОЛЬКО если стоит глобальный флаг
     {
-        cur = usl;
-
-        if ((*lex)[cur].type != Tdt)    //идет не т.з - ожидаем выражение
+        do
         {
-            DataValue* ptrVal = A1();
-            if (ptrVal == Q_NULLPTR) //не выражение
+            cur = usl;
+
+            if ((*lex)[cur].type != Tdt)    //идет не т.з - ожидаем выражение
             {
-                return false;
-            }
-            if (ptrVal->Value.DataInt == 0)//конец цикла только если == 0
-                localFlag = false;
-            else
-                localFlag = true;
-            std::cout<<"\n Значение условного выражения: " << ptrVal->Value.DataInt;     //
-        }
-        else
-            localFlag = true;   //по умолчанию - true
-
-        if (!localFlag)
-        {
-            std::cout<<"\n Выходим из цикла";
-            break;
-        }
-
-        cur = code;    //пока пропустим конец итерации
-
-
-
-
-        if (localFlag && InterpMainFlag)        //интерпретируем, если включен флаг
-            if (!Oper(true))         //Не оператор
-            {
-                //cur = c;        //РІРѕР·РІСЂР°С‰Р°РµРј СѓРєР°Р·Р°С‚РµР»СЊ
-                return false;
-            }
-
-        cur = IterEnd; //теперь вычислим конец итерации
-
-
-        if ((*lex)[cur].type != Trs)            //не закр. скобка - значит конец итерации
-        {
-            if ((*lex)[cur].type == Tid)
-                if ((*lex)[cur+1].type == Teq)
-                    if (!Prisv())         //РЅРµ РІС‹СЂР°Р¶.
-                    {
-                        //ErrorText = "Ожидалось присваивание";
-                        return false;
-                    }
-                    else;
-                else
+                DataValue* ptrVal = A1();
+                if (ptrVal == Q_NULLPTR) //не выражение
                 {
-                    DataValue* ptrVal = A1();
-                    if (ptrVal == Q_NULLPTR)
-                    {
-                        return false;
-                    }
+                    return false;
+                }
+                if (ptrVal->Value.DataInt == 0)//конец цикла только если == 0
+                    localFlag = false;
+                else
+                    localFlag = true;
+                std::cout<<"\n Значение условного выражения: " << ptrVal->Value.DataInt;     //
+            }
+            else
+                localFlag = true;   //по умолчанию - true
+
+            if (!localFlag)
+            {
+                std::cout<<"\n Выходим из цикла";
+                break;
+            }
+
+            cur = code;    //пока пропустим конец итерации
+
+
+
+
+            if (localFlag && InterpMainFlag)        //интерпретируем, если включен флаг
+                if (!Oper(true))         //Не оператор
+                {
+                    //cur = c;        //РІРѕР·РІСЂР°С‰Р°РµРј СѓРєР°Р·Р°С‚РµР»СЊ
+                    return false;
                 }
 
-        }
-    } while (localFlag && InterpMainFlag);
+            cur = IterEnd; //теперь вычислим конец итерации
+
+
+            if ((*lex)[cur].type != Trs)            //не закр. скобка - значит конец итерации
+            {
+                if ((*lex)[cur].type == Tid)
+                    if ((*lex)[cur+1].type == Teq)
+                        if (!Prisv())         //РЅРµ РІС‹СЂР°Р¶.
+                        {
+                            //ErrorText = "Ожидалось присваивание";
+                            return false;
+                        }
+                        else;
+                    else
+                    {
+                        DataValue* ptrVal = A1();
+                        if (ptrVal == Q_NULLPTR)
+                        {
+                            return false;
+                        }
+                    }
+
+            }
+        } while (localFlag && InterpMainFlag);
+    }
 
 ///ИНТЕРПРЕТАЦИЯ ЦИКЛА
     //IsCycle = false;
@@ -1084,13 +1087,13 @@ bool Analizator::Function ()     //Вызов функции
             ErrorText = "Ожидалось выражение";
             return false;
         }
-        if (ptr != Q_NULLPTR)       //функция была найдена
+        if (ptr != Q_NULLPTR)       //параметр присутствует
         {
             if (ParCount > 0)   //еще будут параметры
             {
                 nodePtr = new Node (ptr->N->Id, ptr->N->TypeObj);   //новый узел
                 nodePtr->Data = *ptrVal;         //присвоим значение
-                T->Cur->addLeft(new Node (ptr->N->Id, TypeEmpty, ptr->N->ParamCount, ptr->N->PosInProgram));
+                T->Cur->addLeft(nodePtr);       //добавляем ИМЕННО ЭТОТ узел, а не как до этого - новый
                 T->Cur = T->Cur->Left;
 
                 ptr = ptr->Left;
@@ -1128,7 +1131,7 @@ bool Analizator::Function ()     //Вызов функции
             {
                 nodePtr = new Node (ptr->N->Id, ptr->N->TypeObj);   //новый узел
                 nodePtr->Data = *ptrVal;         //присвоим значение
-                T->Cur->addLeft(new Node (ptr->N->Id, TypeEmpty, ptr->N->ParamCount, ptr->N->PosInProgram));
+                T->Cur->addLeft(nodePtr);
                 T->Cur = T->Cur->Left;
                 ptr = ptr->Left;
                 ParCount--;     //параметров меньше
@@ -1154,6 +1157,7 @@ bool Analizator::Function ()     //Вызов функции
     }
     //построено поддерево для функции
     cur++;
+    RetAddress.push_back(cur); //добавляем адрес возврата
     addrReturn = cur;   //адрес возврата
     return true;
 }
