@@ -1050,6 +1050,9 @@ bool Analizator::Function ()     //Вызов функции
     ////
 
     }
+
+    if (ptr != Q_NULLPTR)       //функция была найдена
+        ParCount = ptr->N->ParamCount;  //число формальных параметров функции
     if (InterpMainFlag  && ptr != Q_NULLPTR)
     {
         std::cout<<"\n\n---Вызов функции "<<ptr->N->Id.toStdString();
@@ -1066,10 +1069,12 @@ bool Analizator::Function ()     //Вызов функции
         T->Cur = T->Cur->Left;
         T->Cur = T->Cur->Right;    //уходим вправо
 
-        ParCount = ptr->N->ParamCount;  //число формальных параметров функции
+
         ptr = ptr->Right;   //спускаемся с уровня функции на слой параметров
         ptr = ptr->Left;
-    }
+     }
+
+
 
     cur++;
     if ((*lex)[cur].type != Tls)
@@ -1091,17 +1096,20 @@ bool Analizator::Function ()     //Вызов функции
         {
             if (ParCount > 0)   //еще будут параметры
             {
-                nodePtr = new Node (ptr->N->Id, ptr->N->TypeObj);   //новый узел
-                nodePtr->Data = *ptrVal;         //присвоим значение
-                T->Cur->addLeft(nodePtr);       //добавляем ИМЕННО ЭТОТ узел, а не как до этого - новый
-                T->Cur = T->Cur->Left;
+                if (InterpMainFlag)
+                {
+                    nodePtr = new Node (ptr->N->Id, ptr->N->TypeObj);   //новый узел
+                    nodePtr->Data = *ptrVal;         //присвоим значение
+                    T->Cur->addLeft(nodePtr);       //добавляем ИМЕННО ЭТОТ узел, а не как до этого - новый
+                    T->Cur = T->Cur->Left;
+                }
 
                 ptr = ptr->Left;
                 ParCount--;     //параметров меньше
             }
             else
             {
-                T->semError("Несоответствие количества параметров", &(*lex)[cur]);
+                T->semError("Параметров больше чем нужно", &(*lex)[cur]);
                 semErr = true;
             }
         }
@@ -1129,16 +1137,19 @@ bool Analizator::Function ()     //Вызов функции
         {
             if (ParCount > 0)   //еще будут параметры
             {
-                nodePtr = new Node (ptr->N->Id, ptr->N->TypeObj);   //новый узел
-                nodePtr->Data = *ptrVal;         //присвоим значение
-                T->Cur->addLeft(nodePtr);
-                T->Cur = T->Cur->Left;
+                if (InterpMainFlag)
+                {
+                    nodePtr = new Node (ptr->N->Id, ptr->N->TypeObj);   //новый узел
+                    nodePtr->Data = *ptrVal;         //присвоим значение
+                    T->Cur->addLeft(nodePtr);
+                    T->Cur = T->Cur->Left;
+                }
                 ptr = ptr->Left;
                 ParCount--;     //параметров меньше
             }
             else
             {
-                T->semError("Несоответствие количества параметров", &(*lex)[cur]);
+                T->semError("Параметров больше чем нужно", &(*lex)[cur]);
                 semErr = true;
             }
         }
@@ -1147,7 +1158,7 @@ bool Analizator::Function ()     //Вызов функции
     if (ptr != Q_NULLPTR)       //функция была найдена
         if(ParCount > 0)
         {
-            T->semError("Несоответствие количества параметров", &(*lex)[cur]);
+            T->semError("Параметров меньше чем нужно", &(*lex)[cur]);
             semErr = true;
         }
     if ((*lex)[cur].type != Trs)
@@ -1157,7 +1168,8 @@ bool Analizator::Function ()     //Вызов функции
     }
     //построено поддерево для функции
     cur++;
-    RetAddress.push_back(cur); //добавляем адрес возврата
+    if (InterpMainFlag)
+        RetAddress.push_back(cur); //добавляем адрес возврата
     addrReturn = cur;   //адрес возврата
     return true;
 }
